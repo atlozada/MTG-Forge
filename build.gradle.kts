@@ -4,37 +4,43 @@ import org.gradle.api.tasks.Delete
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.gradle.plugins.ide.idea.model.IdeaLanguageLevel
 import org.gradle.plugins.ide.idea.model.IdeaModel
-import org.gradle.plugins.ide.idea.model.IdeaModule
-import org.junit.platform.gradle.plugin.JUnitPlatformExtension
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import com.palantir.gradle.docker.DockerExtension
 
 buildscript {
-	val kotlinVer by extra { "1.1.51" }
-	val junitPlatformVer by extra { "1.0.1" }
+	val kotlinVer by extra { "1.5.21" }
+	val springBootVersion by extra { "2.5.3" }
 
 	val versionPluginVer = "0.15.0"
 	val shadowPluginVer = "2.0.1"
 	val dockerPluginVer = "0.13.0"
 
+
 	repositories {
-		jcenter()
 		mavenCentral()
 		maven { setUrl("https://plugins.gradle.org/m2/") }
 	}
 
 	dependencies {
 		classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVer")
+		classpath("org.jetbrains.kotlin:kotlin-allopen:$kotlinVer")
 		classpath("com.github.jengelman.gradle.plugins:shadow:$shadowPluginVer")
 		// gradle dependencyUpdates -Drevision=release
 		classpath("com.github.ben-manes:gradle-versions-plugin:$versionPluginVer")
 		classpath("gradle.plugin.com.palantir.gradle.docker:gradle-docker:$dockerPluginVer")
-		classpath("org.junit.platform:junit-platform-gradle-plugin:$junitPlatformVer")
+		classpath("org.springframework.boot:spring-boot-gradle-plugin:$springBootVersion")
 	}
 }
 
+repositories {
+	maven {
+		setUrl("https://repo.spring.io/libs-snapshot")
+	}
+	mavenCentral()
+}
+
 val kotlinVer: String by extra
-val junitPlatformVer: String by extra
+val springBootVersion: String by extra
 
 val kotlinLoggingVer = "1.4.6"
 val logbackVer = "1.2.3"
@@ -42,18 +48,20 @@ val jAnsiVer = "1.16"
 
 val junitJupiterVer = "5.0.1"
 
-apply {
-	plugin("org.junit.platform.gradle.plugin")
-	plugin("com.github.johnrengelman.shadow")
-	plugin("com.github.ben-manes.versions")
-	plugin("com.palantir.docker")
-}
-
 plugins {
 	java
 	application
 	idea
-	kotlin("jvm")
+	id("org.springframework.boot") version "2.5.3"
+	id("org.jetbrains.kotlin.jvm") version "1.5.21"
+}
+
+apply {
+	plugin("com.github.johnrengelman.shadow")
+	plugin("com.github.ben-manes.versions")
+	plugin("com.palantir.docker")
+	plugin("org.jetbrains.kotlin.jvm")
+	plugin("io.spring.dependency-management")
 }
 
 tasks.withType<KotlinCompile> {
@@ -61,37 +69,36 @@ tasks.withType<KotlinCompile> {
 }
 
 application {
-	mainClassName = "app.AppKt"
+	mainClassName = "com.exile.MtgForgekt"
 	applicationName = "app"
 	version = "1.0-SNAPSHOT"
 	group = "li.barlog.template.kotlin"
 }
 
 java {
-	sourceCompatibility = JavaVersion.VERSION_1_7
-	targetCompatibility = JavaVersion.VERSION_1_7
+	sourceCompatibility = JavaVersion.VERSION_11
+	targetCompatibility = JavaVersion.VERSION_11
 }
 
 dependencies {
-	compile(kotlin("stdlib", kotlinVer))
-	compile(kotlin("reflect", kotlinVer))
+	implementation(kotlin("stdlib", kotlinVer))
+	implementation(kotlin("reflect", kotlinVer))
 
-	compile("io.github.microutils:kotlin-logging:$kotlinLoggingVer")
+	// Spring
+	implementation("org.springframework.boot:spring-boot-starter-web")
+	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 
-	compile("ch.qos.logback:logback-classic:$logbackVer")
-	compile("org.fusesource.jansi:jansi:$jAnsiVer")
+	// Database
+	implementation("org.jooq:jooq:3.15.1")
+	implementation("org.postgresql:postgresql:42.2.23")
 
-	testCompile("org.junit.jupiter:junit-jupiter-api:$junitJupiterVer")
-	testRuntime("org.junit.jupiter:junit-jupiter-engine:$junitJupiterVer")
-	testRuntime("org.junit.platform:junit-platform-launcher:$junitPlatformVer")
-}
+	implementation("io.github.microutils:kotlin-logging:$kotlinLoggingVer")
 
-repositories {
-	jcenter()
-}
+	implementation("ch.qos.logback:logback-classic:$logbackVer")
+	implementation("org.fusesource.jansi:jansi:$jAnsiVer")
 
-configure<JUnitPlatformExtension> {
-	enableStandardTestTask = true
+	testImplementation("org.junit.jupiter:junit-jupiter-api:$junitJupiterVer")
+	testImplementation("org.junit.jupiter:junit-jupiter-engine:$junitJupiterVer")
 }
 
 configure<IdeaModel> {
@@ -121,18 +128,13 @@ configure<DockerExtension> {
 }
 
 tasks.withType<ShadowJar> {
-	baseName = "app"
+	baseName = "mtg-forge"
 	classifier = null
 	version = null
 }
 
 tasks.withType<Test> {
 	maxParallelForks = Runtime.getRuntime().availableProcessors()
-}
-
-task<Wrapper>("wrapper") {
-	gradleVersion = "4.2.1"
-	distributionUrl = "https://services.gradle.org/distributions/gradle-$gradleVersion-all.zip"
 }
 
 val clean: Delete by tasks
